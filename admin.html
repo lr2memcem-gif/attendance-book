@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Portal - Attendance System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-100 text-slate-900 font-sans p-4">
+
+  <div class="max-w-2xl mx-auto space-y-6">
+    <div class="flex justify-between items-center border-b pb-3">
+      <h1 class="text-xl font-bold">Admin Management</h1>
+      <a href="index.html" class="text-xs bg-slate-800 text-white px-3 py-1.5 rounded font-semibold">Back to Home</a>
+    </div>
+
+    <!-- 1. INSTITUTION SETTINGS -->
+    <div class="bg-white p-5 rounded-lg shadow border border-slate-200">
+      <h2 class="text-base font-bold mb-3 border-b pb-1">1. College & Department Details</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600">College Name</label>
+          <input type="text" id="cfg-college" class="w-full border p-2 rounded text-sm mt-1" placeholder="e.g. GOVERNMENT ENGINEERING COLLEGE">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600">Department Name</label>
+          <input type="text" id="cfg-dept" class="w-full border p-2 rounded text-sm mt-1" placeholder="e.g. DEPARTMENT OF COMPUTER SCIENCE & ENGINEERING">
+        </div>
+        <button onclick="saveSettings()" id="btn-save-cfg" class="bg-blue-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-blue-700">
+          Save Header Info
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. ADD CLASSES -->
+    <div class="bg-white p-5 rounded-lg shadow border border-slate-200">
+      <h2 class="text-base font-bold mb-3 border-b pb-1">2. Manage Classes / Batches</h2>
+      <div class="flex gap-2">
+        <input type="text" id="new-class-name" placeholder="e.g. S4 CSE A" class="flex-1 border p-2 rounded text-sm">
+        <button onclick="addClass()" class="bg-emerald-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-emerald-700">Add Class</button>
+      </div>
+      <div id="class-list" class="mt-3 divide-y border rounded text-xs max-h-40 overflow-y-auto"></div>
+    </div>
+
+    <!-- 3. ADD STUDENTS -->
+    <div class="bg-white p-5 rounded-lg shadow border border-slate-200">
+      <h2 class="text-base font-bold mb-3 border-b pb-1">3. Add Students to Class</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600">Select Class</label>
+          <select id="student-class-sel" class="w-full border p-2 rounded text-sm mt-1" onchange="loadStudentsList()">
+            <option value="">-- Choose Class --</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600">Roll No</label>
+            <input type="text" id="st-roll" placeholder="e.g. 01" class="w-full border p-2 rounded text-sm mt-1">
+          </div>
+          <div class="col-span-2">
+            <label class="block text-xs font-semibold text-slate-600">Student Name</label>
+            <input type="text" id="st-name" placeholder="e.g. Arun Kumar" class="w-full border p-2 rounded text-sm mt-1">
+          </div>
+        </div>
+
+        <button onclick="addSingleStudent()" class="bg-emerald-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-emerald-700">
+          Add Student
+        </button>
+
+        <div class="border-t pt-3">
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Or Bulk Add (Roll No, Name - one per line):</label>
+          <textarea id="bulk-students" rows="4" class="w-full border p-2 rounded text-xs font-mono" placeholder="01, Rahul K&#10;02, Priya S&#10;03, Anand M"></textarea>
+          <button onclick="addBulkStudents()" class="bg-indigo-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-indigo-700 mt-2">
+            Upload List
+          </button>
+        </div>
+
+        <div class="border-t pt-2">
+          <h3 class="text-xs font-bold text-slate-700 mb-1">Current Class Roster:</h3>
+          <div id="roster-list" class="divide-y border rounded text-xs max-h-48 overflow-y-auto bg-slate-50"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://kpbyxgdgbizeipsacbqd.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwYnl4Z2RnYml6ZWlwc2FjYnFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4OTgzNDksImV4cCI6MjEwNzQ3NDM0OX0.KgP4VSfPVpdxN4RsBScUC0IfxxTFtY5anKbB-OCG21s";
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await loadSettings();
+      await refreshClasses();
+    });
+
+    async function loadSettings() {
+      const { data } = await db.from("institution_settings").select("*").eq("id", 1).single();
+      if (data) {
+        document.getElementById("cfg-college").value = data.college_name || "";
+        document.getElementById("cfg-dept").value = data.department_name || "";
+      }
+    }
+
+    async function saveSettings() {
+      const col = document.getElementById("cfg-college").value.trim();
+      const dep = document.getElementById("cfg-dept").value.trim();
+      const btn = document.getElementById("btn-save-cfg");
+
+      btn.textContent = "Saving...";
+      await db.from("institution_settings").update({
+        college_name: col,
+        department_name: dep
+      }).eq("id", 1);
+      btn.textContent = "Saved!";
+      setTimeout(() => btn.textContent = "Save Header Info", 2000);
+    }
+
+    async function refreshClasses() {
+      const { data } = await db.from("classes").select("*").order("name");
+      const list = document.getElementById("class-list");
+      const sel = document.getElementById("student-class-sel");
+
+      list.innerHTML = "";
+      sel.innerHTML = '<option value="">-- Choose Class --</option>';
+
+      (data || []).forEach(c => {
+        list.innerHTML += `<div class="p-2 flex justify-between"><span>${c.name}</span><span class="text-slate-400">ID: ${c.id}</span></div>`;
+        sel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+      });
+    }
+
+    async function addClass() {
+      const name = document.getElementById("new-class-name").value.trim();
+      if (!name) return alert("Enter class name");
+      await db.from("classes").insert({ name });
+      document.getElementById("new-class-name").value = "";
+      await refreshClasses();
+    }
+
+    async function loadStudentsList() {
+      const classId = document.getElementById("student-class-sel").value;
+      const roster = document.getElementById("roster-list");
+      if (!classId) {
+        roster.innerHTML = "";
+        return;
+      }
+      const { data } = await db.from("students").select("*").eq("class_id", classId).order("roll_no");
+      if (!data || data.length === 0) {
+        roster.innerHTML = '<div class="p-2 text-slate-400">No students added yet</div>';
+        return;
+      }
+      roster.innerHTML = data.map(s => `
+        <div class="p-2 flex justify-between">
+          <span class="font-bold">${s.roll_no}</span>
+          <span>${s.name}</span>
+        </div>
+      `).join("");
+    }
+
+    async function addSingleStudent() {
+      const classId = document.getElementById("student-class-sel").value;
+      const roll = document.getElementById("st-roll").value.trim();
+      const name = document.getElementById("st-name").value.trim();
+
+      if (!classId || !roll || !name) return alert("Fill Class, Roll No, and Name");
+
+      const { error } = await db.from("students").insert({ class_id: classId, roll_no: roll, name });
+      if (error) alert(error.message);
+      else {
+        document.getElementById("st-roll").value = "";
+        document.getElementById("st-name").value = "";
+        loadStudentsList();
+      }
+    }
+
+    async function addBulkStudents() {
+      const classId = document.getElementById("student-class-sel").value;
+      const rawText = document.getElementById("bulk-students").value.trim();
+      if (!classId || !rawText) return alert("Select class and enter data");
+
+      const lines = rawText.split("\n");
+      const records = [];
+
+      for (let line of lines) {
+        const parts = line.split(",");
+        if (parts.length >= 2) {
+          records.push({
+            class_id: classId,
+            roll_no: parts[0].trim(),
+            name: parts.slice(1).join(",").trim()
+          });
+        }
+      }
+
+      if (records.length === 0) return alert("No valid rows found. Format: 01, Name");
+
+      const { error } = await db.from("students").insert(records);
+      if (error) alert("Error: " + error.message);
+      else {
+        alert(`Added ${records.length} students!`);
+        document.getElementById("bulk-students").value = "";
+        loadStudentsList();
+      }
+    }
+  </script>
+</body>
+</html>
