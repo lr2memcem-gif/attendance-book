@@ -6,7 +6,6 @@
   <title>Admin Portal - Attendance System</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- SheetJS Library for Excel Import/Export -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-100 text-slate-900 font-sans p-4">
@@ -23,11 +22,11 @@
       <div class="space-y-3">
         <div>
           <label class="block text-xs font-semibold text-slate-600">College Name</label>
-          <input type="text" id="cfg-college" class="w-full border p-2 rounded text-sm mt-1" placeholder="e.g. GOVERNMENT ENGINEERING COLLEGE">
+          <input type="text" id="cfg-college" class="w-full border p-2 rounded text-sm mt-1" placeholder="e.g. MADIN COLLEGE OF ENGINEERING">
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-600">Department Name</label>
-          <input type="text" id="cfg-dept" class="w-full border p-2 rounded text-sm mt-1" placeholder="e.g. DEPARTMENT OF COMPUTER SCIENCE & ENGINEERING">
+          <input type="text" id="cfg-dept" class="w-full border p-2 rounded text-sm mt-1" placeholder="e.g. DEPARTMENT OF MECHANICAL ENGINEERING">
         </div>
         <button onclick="saveSettings()" id="btn-save-cfg" class="bg-blue-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-blue-700">
           Save Header Info
@@ -35,17 +34,17 @@
       </div>
     </div>
 
-    <!-- 2. CREATE STAFF / HOD LOGINS -->
+    <!-- 2. CREATE STAFF ACCOUNTS -->
     <div class="bg-white p-5 rounded-lg shadow border border-slate-200">
-      <h2 class="text-base font-bold mb-3 border-b pb-1">2. Create Staff / HOD / Admin Login</h2>
+      <h2 class="text-base font-bold mb-3 border-b pb-1">2. Create Staff / HOD Login</h2>
       <div class="space-y-3">
         <div>
           <label class="block text-xs font-semibold text-slate-600">Staff Full Name</label>
-          <input type="text" id="staff-name" placeholder="e.g. Prof. Ramesh Kumar" class="w-full border p-2 rounded text-sm mt-1">
+          <input type="text" id="staff-name" placeholder="e.g. Maneesh T" class="w-full border p-2 rounded text-sm mt-1">
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-600">Email Address</label>
-          <input type="email" id="staff-email" placeholder="ramesh@college.edu" class="w-full border p-2 rounded text-sm mt-1">
+          <input type="email" id="staff-email" placeholder="maneesh@college.edu" class="w-full border p-2 rounded text-sm mt-1">
         </div>
         <div class="grid grid-cols-2 gap-2">
           <div>
@@ -62,71 +61,88 @@
           </div>
         </div>
         <button onclick="createStaffAccount()" id="btn-create-staff" class="bg-purple-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-purple-700">
-          Create Staff Account
+          Create Account
         </button>
       </div>
     </div>
 
-    <!-- 3. MANAGE CLASSES -->
+    <!-- 3. CLASSES & SUBJECTS -->
     <div class="bg-white p-5 rounded-lg shadow border border-slate-200">
-      <h2 class="text-base font-bold mb-3 border-b pb-1">3. Manage Classes / Batches</h2>
-      <div class="flex gap-2">
-        <input type="text" id="new-class-name" placeholder="e.g. S4 CSE A" class="flex-1 border p-2 rounded text-sm">
+      <h2 class="text-base font-bold mb-3 border-b pb-1">3. Manage Classes & Subjects</h2>
+      
+      <!-- Class Add -->
+      <label class="block text-xs font-semibold text-slate-600 mb-1">Add Class</label>
+      <div class="flex gap-2 mb-4">
+        <input type="text" id="new-class-name" placeholder="e.g. S4 ME A" class="flex-1 border p-2 rounded text-sm">
         <button onclick="addClass()" class="bg-emerald-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-emerald-700">Add Class</button>
       </div>
-      <div id="class-list" class="mt-3 divide-y border rounded text-xs max-h-40 overflow-y-auto"></div>
+
+      <!-- Subject Add -->
+      <label class="block text-xs font-semibold text-slate-600 mb-1">Add Subject</label>
+      <div class="grid grid-cols-3 gap-2">
+        <div>
+          <input type="text" id="sub-code" placeholder="Code (e.g. MSM)" class="w-full border p-2 rounded text-sm">
+        </div>
+        <div class="col-span-2 flex gap-2">
+          <input type="text" id="sub-name" placeholder="Subject Name" class="flex-1 border p-2 rounded text-sm">
+          <button onclick="addSubject()" class="bg-indigo-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-indigo-700">Add</button>
+        </div>
+      </div>
     </div>
 
-    <!-- 4. ADD STUDENTS (EXCEL TEMPLATE & UPLOAD) -->
+    <!-- 4. ALLOCATE SUBJECT & CLASS TO STAFF -->
     <div class="bg-white p-5 rounded-lg shadow border border-slate-200">
-      <h2 class="text-base font-bold mb-3 border-b pb-1">4. Manage Students</h2>
-      
-      <div class="space-y-4">
+      <h2 class="text-base font-bold mb-3 border-b pb-1">4. Assign Subject to Staff</h2>
+      <div class="space-y-3">
         <div>
-          <label class="block text-xs font-semibold text-slate-600">Select Target Class</label>
+          <label class="block text-xs font-semibold text-slate-600">Select Staff Member</label>
+          <select id="alloc-staff" class="w-full border p-2 rounded text-sm mt-1"></select>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600">Select Class</label>
+            <select id="alloc-class" class="w-full border p-2 rounded text-sm mt-1"></select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600">Select Subject</label>
+            <select id="alloc-subject" class="w-full border p-2 rounded text-sm mt-1"></select>
+          </div>
+        </div>
+        <button onclick="assignCourse()" class="bg-blue-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-blue-700">
+          Assign Mapping
+        </button>
+        
+        <div class="border-t pt-2 mt-3">
+          <h3 class="text-xs font-bold text-slate-700 mb-1">Current Subject Allocations:</h3>
+          <div id="alloc-list" class="divide-y border rounded text-xs max-h-36 overflow-y-auto bg-slate-50"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. MANAGE STUDENTS -->
+    <div class="bg-white p-5 rounded-lg shadow border border-slate-200">
+      <h2 class="text-base font-bold mb-3 border-b pb-1">5. Manage Students</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600">Select Class</label>
           <select id="student-class-sel" class="w-full border p-2 rounded text-sm mt-1" onchange="loadStudentsList()">
             <option value="">-- Choose Class --</option>
           </select>
         </div>
 
-        <!-- EXCEL UPLOAD SECTION -->
         <div class="border border-blue-200 bg-blue-50/60 p-4 rounded-lg space-y-3">
           <div class="flex justify-between items-center">
             <span class="text-xs font-bold text-blue-900">Import Via Excel</span>
-            <button onclick="downloadExcelTemplate()" class="bg-white border border-blue-400 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-100 flex items-center gap-1">
-              <span>📥</span> Download Excel Template
+            <button onclick="downloadExcelTemplate()" class="bg-white border border-blue-400 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-100">
+              📥 Download Excel Template
             </button>
           </div>
-
-          <div>
-            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Choose Completed Excel File (.xlsx / .xls):</label>
-            <input type="file" id="excel-file-input" accept=".xlsx, .xls" class="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer border rounded bg-white p-1">
-          </div>
-
+          <input type="file" id="excel-file-input" accept=".xlsx, .xls" class="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white cursor-pointer border rounded bg-white p-1">
           <button onclick="uploadExcel()" id="btn-upload-excel" class="w-full bg-emerald-600 text-white py-2 rounded text-xs font-bold hover:bg-emerald-700">
             Upload & Save Students
           </button>
         </div>
 
-        <!-- MANUAL ENTRY FALLBACK -->
-        <details class="text-xs border rounded p-2">
-          <summary class="cursor-pointer font-semibold text-slate-700">Manual Entry (Single Student)</summary>
-          <div class="mt-3 space-y-2">
-            <div class="grid grid-cols-3 gap-2">
-              <div>
-                <label class="block text-[11px] text-slate-500">Roll No</label>
-                <input type="text" id="st-roll" placeholder="01" class="w-full border p-1.5 rounded text-xs">
-              </div>
-              <div class="col-span-2">
-                <label class="block text-[11px] text-slate-500">Student Name</label>
-                <input type="text" id="st-name" placeholder="John Doe" class="w-full border p-1.5 rounded text-xs">
-              </div>
-            </div>
-            <button onclick="addSingleStudent()" class="bg-slate-700 text-white px-3 py-1.5 rounded text-xs font-bold">Add One</button>
-          </div>
-        </details>
-
-        <!-- CURRENT CLASS ROSTER -->
         <div class="border-t pt-2">
           <div class="flex justify-between items-center mb-1">
             <h3 class="text-xs font-bold text-slate-700">Class Roster:</h3>
@@ -134,7 +150,6 @@
           </div>
           <div id="roster-list" class="divide-y border rounded text-xs max-h-48 overflow-y-auto bg-slate-50"></div>
         </div>
-
       </div>
     </div>
   </div>
@@ -146,7 +161,8 @@
 
     document.addEventListener("DOMContentLoaded", async () => {
       await loadSettings();
-      await refreshClasses();
+      await refreshAllDropdowns();
+      await loadAllocations();
     });
 
     async function loadSettings() {
@@ -161,12 +177,8 @@
       const col = document.getElementById("cfg-college").value.trim();
       const dep = document.getElementById("cfg-dept").value.trim();
       const btn = document.getElementById("btn-save-cfg");
-
       btn.textContent = "Saving...";
-      await db.from("institution_settings").update({
-        college_name: col,
-        department_name: dep
-      }).eq("id", 1);
+      await db.from("institution_settings").update({ college_name: col, department_name: dep }).eq("id", 1);
       btn.textContent = "Saved!";
       setTimeout(() => btn.textContent = "Save Header Info", 2000);
     }
@@ -178,43 +190,53 @@
       const role = document.getElementById("staff-role").value;
       const btn = document.getElementById("btn-create-staff");
 
-      if (!name || !email || !password) return alert("Please fill all staff details");
-      if (password.length < 6) return alert("Password must be at least 6 characters");
-
+      if (!name || !email || !password) return alert("Fill all staff details");
       btn.disabled = true;
       btn.textContent = "Creating...";
 
-      const { data, error } = await db.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name, role }
-        }
+      const { error } = await db.auth.signUp({
+        email, password,
+        options: { data: { name, role } }
       });
 
-      if (error) {
-        alert("Failed to create account: " + error.message);
-      } else {
-        alert(`Account created successfully for ${name} (${role})!`);
+      if (error) alert("Error: " + error.message);
+      else {
+        alert(`Account created for ${name}!`);
         document.getElementById("staff-name").value = "";
         document.getElementById("staff-email").value = "";
         document.getElementById("staff-pass").value = "";
+        await refreshAllDropdowns();
       }
       btn.disabled = false;
-      btn.textContent = "Create Staff Account";
+      btn.textContent = "Create Account";
     }
 
-    async function refreshClasses() {
-      const { data } = await db.from("classes").select("*").order("name");
-      const list = document.getElementById("class-list");
-      const sel = document.getElementById("student-class-sel");
+    async function refreshAllDropdowns() {
+      // Classes
+      const { data: cls } = await db.from("classes").select("*").order("name");
+      const cSel = document.getElementById("alloc-class");
+      const stCSel = document.getElementById("student-class-sel");
+      cSel.innerHTML = "";
+      stCSel.innerHTML = '<option value="">-- Choose Class --</option>';
+      (cls || []).forEach(c => {
+        cSel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+        stCSel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+      });
 
-      list.innerHTML = "";
-      sel.innerHTML = '<option value="">-- Choose Class --</option>';
+      // Staff Profiles
+      const { data: stf } = await db.from("profiles").select("*").order("name");
+      const staffSel = document.getElementById("alloc-staff");
+      staffSel.innerHTML = "";
+      (stf || []).forEach(s => {
+        staffSel.innerHTML += `<option value="${s.id}">${s.name} (${s.role})</option>`;
+      });
 
-      (data || []).forEach(c => {
-        list.innerHTML += `<div class="p-2 flex justify-between"><span>${c.name}</span><span class="text-slate-400">ID: ${c.id}</span></div>`;
-        sel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+      // Subjects
+      const { data: subs } = await db.from("subjects").select("*").order("code");
+      const subSel = document.getElementById("alloc-subject");
+      subSel.innerHTML = "";
+      (subs || []).forEach(sb => {
+        subSel.innerHTML += `<option value="${sb.id}">${sb.code} - ${sb.name}</option>`;
       });
     }
 
@@ -223,7 +245,59 @@
       if (!name) return alert("Enter class name");
       await db.from("classes").insert({ name });
       document.getElementById("new-class-name").value = "";
-      await refreshClasses();
+      await refreshAllDropdowns();
+    }
+
+    async function addSubject() {
+      const code = document.getElementById("sub-code").value.trim();
+      const name = document.getElementById("sub-name").value.trim();
+      if (!code || !name) return alert("Fill subject code and name");
+      await db.from("subjects").insert({ code, name });
+      document.getElementById("sub-code").value = "";
+      document.getElementById("sub-name").value = "";
+      await refreshAllDropdowns();
+    }
+
+    async function assignCourse() {
+      const staffId = document.getElementById("alloc-staff").value;
+      const classId = document.getElementById("alloc-class").value;
+      const subjectId = document.getElementById("alloc-subject").value;
+
+      if (!staffId || !classId || !subjectId) return alert("Select all 3 items");
+
+      const { error } = await db.from("course_allocations").upsert({
+        staff_id: staffId,
+        class_id: classId,
+        subject_id: subjectId
+      }, { onConflict: "staff_id,subject_id,class_id" });
+
+      if (error) alert("Error: " + error.message);
+      else {
+        alert("Assigned successfully!");
+        await loadAllocations();
+      }
+    }
+
+    async function loadAllocations() {
+      const { data } = await db.from("course_allocations").select(`
+        id,
+        profiles ( name ),
+        classes ( name ),
+        subjects ( code )
+      `);
+
+      const list = document.getElementById("alloc-list");
+      if (!data || data.length === 0) {
+        list.innerHTML = '<div class="p-2 text-slate-400">No allocations yet</div>';
+        return;
+      }
+
+      list.innerHTML = data.map(a => `
+        <div class="p-2 flex justify-between items-center">
+          <span><b>${a.profiles?.name}</b> → ${a.classes?.name}</span>
+          <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">${a.subjects?.code}</span>
+        </div>
+      `).join("");
     }
 
     async function loadStudentsList() {
@@ -238,14 +312,8 @@
       }
 
       const { data } = await db.from("students").select("*").eq("class_id", classId).order("roll_no");
-      if (!data || data.length === 0) {
-        roster.innerHTML = '<div class="p-2 text-slate-400 text-center">No students added yet</div>';
-        countLabel.textContent = "0 students";
-        return;
-      }
-
-      countLabel.textContent = `${data.length} students`;
-      roster.innerHTML = data.map(s => `
+      countLabel.textContent = `${(data || []).length} students`;
+      roster.innerHTML = (data || []).map(s => `
         <div class="p-2 flex justify-between">
           <span class="font-bold">${s.roll_no}</span>
           <span>${s.name}</span>
@@ -256,10 +324,8 @@
     function downloadExcelTemplate() {
       const sampleData = [
         { "Roll No": "01", "Name": "Aravind Sharma" },
-        { "Roll No": "02", "Name": "Diya Suresh" },
-        { "Roll No": "03", "Name": "Mohammed Irfan" }
+        { "Roll No": "02", "Name": "Diya Suresh" }
       ];
-
       const ws = XLSX.utils.json_to_sheet(sampleData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Students");
@@ -269,88 +335,40 @@
     async function uploadExcel() {
       const classId = document.getElementById("student-class-sel").value;
       const fileInput = document.getElementById("excel-file-input");
+      if (!classId) return alert("Select target class");
+      if (!fileInput.files[0]) return alert("Select an Excel file");
 
-      if (!classId) return alert("Please select a target class first.");
-      if (!fileInput.files || fileInput.files.length === 0) return alert("Please select an Excel file.");
-
-      const file = fileInput.files[0];
       const reader = new FileReader();
       const btn = document.getElementById("btn-upload-excel");
-
       btn.disabled = true;
-      btn.textContent = "Processing file...";
+      btn.textContent = "Uploading...";
 
       reader.onload = async (e) => {
         try {
           const data = new Uint8Array(e.target.result);
           const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-          const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-
-          if (!jsonData || jsonData.length === 0) {
-            alert("The uploaded Excel sheet is empty.");
-            btn.disabled = false;
-            btn.textContent = "Upload & Save Students";
-            return;
-          }
-
+          const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
           const records = [];
-          for (let row of jsonData) {
-            const roll = row["Roll No"] || row["RollNo"] || row["ROLL NO"] || row["roll_no"] || row["Roll"];
-            const name = row["Name"] || row["NAME"] || row["Student Name"] || row["student_name"];
 
+          for (let r of rows) {
+            const roll = r["Roll No"] || r["RollNo"] || r["ROLL NO"];
+            const name = r["Name"] || r["NAME"] || r["Student Name"];
             if (roll && name) {
-              records.push({
-                class_id: classId,
-                roll_no: String(roll).trim(),
-                name: String(name).trim()
-              });
+              records.push({ class_id: classId, roll_no: String(roll).trim(), name: String(name).trim() });
             }
           }
 
-          if (records.length === 0) {
-            alert("No valid records found. Make sure columns are titled 'Roll No' and 'Name'.");
-            btn.disabled = false;
-            btn.textContent = "Upload & Save Students";
-            return;
-          }
-
-          btn.textContent = `Uploading ${records.length} students...`;
-
-          const { error } = await db.from("students").upsert(records, { onConflict: 'class_id,roll_no' });
-
-          if (error) {
-            alert("Upload failed: " + error.message);
-          } else {
-            alert(`Success! Imported ${records.length} students.`);
-            fileInput.value = "";
-            await loadStudentsList();
-          }
+          await db.from("students").upsert(records, { onConflict: 'class_id,roll_no' });
+          alert(`Imported ${records.length} students!`);
+          await loadStudentsList();
         } catch (err) {
-          alert("Error parsing Excel file: " + err.message);
+          alert("Error: " + err.message);
         } finally {
           btn.disabled = false;
           btn.textContent = "Upload & Save Students";
         }
       };
-
-      reader.readAsArrayBuffer(file);
-    }
-
-    async function addSingleStudent() {
-      const classId = document.getElementById("student-class-sel").value;
-      const roll = document.getElementById("st-roll").value.trim();
-      const name = document.getElementById("st-name").value.trim();
-
-      if (!classId || !roll || !name) return alert("Fill Class, Roll No, and Name");
-
-      const { error } = await db.from("students").upsert({ class_id: classId, roll_no: roll, name }, { onConflict: 'class_id,roll_no' });
-      if (error) alert(error.message);
-      else {
-        document.getElementById("st-roll").value = "";
-        document.getElementById("st-name").value = "";
-        loadStudentsList();
-      }
+      reader.readAsArrayBuffer(fileInput.files[0]);
     }
   </script>
 </body>
