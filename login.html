@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Attendance Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-100 flex items-center justify-center min-h-screen p-4 font-sans text-slate-900">
+
+  <div class="bg-white p-6 rounded-lg shadow-md border border-slate-200 max-w-sm w-full">
+    <div class="text-center mb-6">
+      <h1 class="text-xl font-bold tracking-tight">Attendance Portal</h1>
+      <p class="text-xs text-slate-500 mt-1">Sign in to your account</p>
+    </div>
+
+    <form onsubmit="handleLogin(event)" class="space-y-4">
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Email</label>
+        <input type="email" id="login-email" required class="w-full border p-2 rounded text-sm outline-none focus:border-blue-500" placeholder="staff@college.edu">
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-600 mb-1">Password</label>
+        <input type="password" id="login-password" required class="w-full border p-2 rounded text-sm outline-none focus:border-blue-500" placeholder="••••••••">
+      </div>
+
+      <button type="submit" id="btn-login" class="w-full bg-blue-600 text-white font-bold py-2 rounded text-sm hover:bg-blue-700 transition">
+        Sign In
+      </button>
+
+      <div id="login-error" class="hidden text-xs text-red-600 text-center font-medium"></div>
+    </form>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://kpbyxgdgbizeipsacbqd.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwYnl4Z2RnYml6ZWlwc2FjYnFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4OTgzNDksImV4cCI6MjEwNzQ3NDM0OX0.KgP4VSfPVpdxN4RsBScUC0IfxxTFtY5anKbB-OCG21s";
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById("login-email").value.trim();
+      const password = document.getElementById("login-password").value;
+      const btn = document.getElementById("btn-login");
+      const errBox = document.getElementById("login-error");
+
+      btn.disabled = true;
+      btn.textContent = "Signing In...";
+      errBox.classList.add("hidden");
+
+      const { data, error } = await db.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        errBox.textContent = error.message;
+        errBox.classList.remove("hidden");
+        btn.disabled = false;
+        btn.textContent = "Sign In";
+        return;
+      }
+
+      window.location.href = "index.html";
+    }
+  </script>
+</body>
+</html>
