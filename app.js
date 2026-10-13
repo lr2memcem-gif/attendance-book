@@ -1,276 +1,357 @@
-// Connect to Supabase
-const SUPABASE_URL = "https://kpbyxgdgbizeipsacbqd.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwYnl4Z2RnYml6ZWlwc2FjYnFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4OTgzNDksImV4cCI6MjEwNzQ3NDM0OX0.KgP4VSfPVpdxN4RsBScUC0IfxxTFtY5anKbB-OCG21s";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Portal - Attendance System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- SheetJS Library for Excel Import/Export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-900 font-sans p-4">
 
-const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  <div class="max-w-2xl mx-auto space-y-6">
+    <div class="flex justify-between items-center border-b pb-3">
+      <h1 class="text-xl font-bold">Admin Management</h1>
+      <a href="index.html" class="text-xs bg-slate-800 text-white px-3 py-1.5 rounded font-semibold">Back to Home</a>
+    </div>
 
-let absentStudents = new Set();
-let institutionSettings = { college_name: '', department_name: '' };
+    <!-- 1. INSTITUTION SETTINGS -->
+    <div class="bg-white p-5 rounded-lg shadow border border-slate-200">
+      <h2 class="text-base font-bold mb-3 border-b pb-1">1. College & Department Details</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600">College Name</label>
+          <input type="text" id="cfg-college" class="w-full border p-2 rounded text-sm mt-1" placeholder="e.g. GOVERNMENT ENGINEERING COLLEGE">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600">Department Name</label>
+          <input type="text" id="cfg-dept" class="w-full border p-2 rounded text-sm mt-1" placeholder="e.g. DEPARTMENT OF COMPUTER SCIENCE & ENGINEERING">
+        </div>
+        <button onclick="saveSettings()" id="btn-save-cfg" class="bg-blue-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-blue-700">
+          Save Header Info
+        </button>
+      </div>
+    </div>
 
-// Initialize date inputs to today
-document.addEventListener("DOMContentLoaded", async () => {
-  const today = new Date().toISOString().split("T")[0];
-  document.getElementById("mark-date").value = today;
-  document.getElementById("reg-from").value = today;
-  document.getElementById("reg-to").value = today;
+    <!-- 2. CREATE STAFF / HOD LOGINS -->
+    <div class="bg-white p-5 rounded-lg shadow border border-slate-200">
+      <h2 class="text-base font-bold mb-3 border-b pb-1">2. Create Staff / HOD / Admin Login</h2>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600">Staff Full Name</label>
+          <input type="text" id="staff-name" placeholder="e.g. Prof. Ramesh Kumar" class="w-full border p-2 rounded text-sm mt-1">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600">Email Address</label>
+          <input type="email" id="staff-email" placeholder="ramesh@college.edu" class="w-full border p-2 rounded text-sm mt-1">
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-semibold text-slate-600">Password</label>
+            <input type="password" id="staff-pass" placeholder="Min. 6 characters" class="w-full border p-2 rounded text-sm mt-1">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600">Role</label>
+            <select id="staff-role" class="w-full border p-2 rounded text-sm mt-1">
+              <option value="STAFF">Staff</option>
+              <option value="HOD">HOD</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </div>
+        </div>
+        <button onclick="createStaffAccount()" id="btn-create-staff" class="bg-purple-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-purple-700">
+          Create Staff Account
+        </button>
+      </div>
+    </div>
 
-  await loadInstitutionInfo();
-  await loadClassDropdowns();
-});
+    <!-- 3. MANAGE CLASSES -->
+    <div class="bg-white p-5 rounded-lg shadow border border-slate-200">
+      <h2 class="text-base font-bold mb-3 border-b pb-1">3. Manage Classes / Batches</h2>
+      <div class="flex gap-2">
+        <input type="text" id="new-class-name" placeholder="e.g. S4 CSE A" class="flex-1 border p-2 rounded text-sm">
+        <button onclick="addClass()" class="bg-emerald-600 text-white px-4 py-2 rounded text-xs font-bold hover:bg-emerald-700">Add Class</button>
+      </div>
+      <div id="class-list" class="mt-3 divide-y border rounded text-xs max-h-40 overflow-y-auto"></div>
+    </div>
 
-function showTab(tab) {
-  document.getElementById("tab-mark").classList.toggle("hidden", tab !== "mark");
-  document.getElementById("tab-register").classList.toggle("hidden", tab !== "register");
-}
+    <!-- 4. ADD STUDENTS (EXCEL TEMPLATE & UPLOAD) -->
+    <div class="bg-white p-5 rounded-lg shadow border border-slate-200">
+      <h2 class="text-base font-bold mb-3 border-b pb-1">4. Manage Students</h2>
+      
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600">Select Target Class</label>
+          <select id="student-class-sel" class="w-full border p-2 rounded text-sm mt-1" onchange="loadStudentsList()">
+            <option value="">-- Choose Class --</option>
+          </select>
+        </div>
 
-async function loadInstitutionInfo() {
-  const { data } = await db.from("institution_settings").select("*").eq("id", 1).single();
-  if (data) institutionSettings = data;
-}
+        <!-- EXCEL UPLOAD SECTION -->
+        <div class="border border-blue-200 bg-blue-50/60 p-4 rounded-lg space-y-3">
+          <div class="flex justify-between items-center">
+            <span class="text-xs font-bold text-blue-900">Import Via Excel</span>
+            <button onclick="downloadExcelTemplate()" class="bg-white border border-blue-400 text-blue-700 px-3 py-1 rounded text-xs font-semibold hover:bg-blue-100 flex items-center gap-1">
+              <span>📥</span> Download Excel Template
+            </button>
+          </div>
 
-async function loadClassDropdowns() {
-  const { data: classes } = await db.from("classes").select("*").order("name");
-  const markSel = document.getElementById("mark-class");
-  const regSel = document.getElementById("reg-class");
-  
-  markSel.innerHTML = '<option value="">-- Choose Class --</option>';
-  regSel.innerHTML = '';
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-600 mb-1">Choose Completed Excel File (.xlsx / .xls):</label>
+            <input type="file" id="excel-file-input" accept=".xlsx, .xls" class="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer border rounded bg-white p-1">
+          </div>
 
-  (classes || []).forEach(c => {
-    markSel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
-    regSel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
-  });
-}
+          <button onclick="uploadExcel()" id="btn-upload-excel" class="w-full bg-emerald-600 text-white py-2 rounded text-xs font-bold hover:bg-emerald-700">
+            Upload & Save Students
+          </button>
+        </div>
 
-async function loadStudents() {
-  const classId = document.getElementById("mark-class").value;
-  const grid = document.getElementById("student-grid");
-  absentStudents.clear();
+        <!-- MANUAL ENTRY FALLBACK -->
+        <details class="text-xs border rounded p-2">
+          <summary class="cursor-pointer font-semibold text-slate-700">Manual Entry (Single Student)</summary>
+          <div class="mt-3 space-y-2">
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-[11px] text-slate-500">Roll No</label>
+                <input type="text" id="st-roll" placeholder="01" class="w-full border p-1.5 rounded text-xs">
+              </div>
+              <div class="col-span-2">
+                <label class="block text-[11px] text-slate-500">Student Name</label>
+                <input type="text" id="st-name" placeholder="John Doe" class="w-full border p-1.5 rounded text-xs">
+              </div>
+            </div>
+            <button onclick="addSingleStudent()" class="bg-slate-700 text-white px-3 py-1.5 rounded text-xs font-bold">Add One</button>
+          </div>
+        </details>
 
-  if (!classId) {
-    grid.innerHTML = '<p class="text-xs text-slate-400 col-span-2 p-3 text-center">Select a class first</p>';
-    return;
-  }
+        <!-- CURRENT CLASS ROSTER -->
+        <div class="border-t pt-2">
+          <div class="flex justify-between items-center mb-1">
+            <h3 class="text-xs font-bold text-slate-700">Class Roster:</h3>
+            <span id="roster-count" class="text-[11px] text-slate-500">0 students</span>
+          </div>
+          <div id="roster-list" class="divide-y border rounded text-xs max-h-48 overflow-y-auto bg-slate-50"></div>
+        </div>
 
-  const { data: students } = await db.from("students").select("*").eq("class_id", classId).order("roll_no");
-  if (!students || students.length === 0) {
-    grid.innerHTML = '<p class="text-xs text-red-500 col-span-2 p-3 text-center">No students found in this class</p>';
-    return;
-  }
+      </div>
+    </div>
+  </div>
 
-  grid.innerHTML = students.map(s => `
-    <button type="button" id="st-${s.id}" onclick="toggleAbsent(${s.id})"
-      class="p-2 border rounded text-left text-xs bg-white text-slate-800 transition">
-      <div class="font-bold">${s.roll_no}</div>
-      <div class="truncate text-[11px]">${s.name}</div>
-      <div id="st-badge-${s.id}" class="text-[10px] text-emerald-600 font-semibold mt-1">PRESENT</div>
-    </button>
-  `).join('');
-}
+  <script>
+    const SUPABASE_URL = "https://kpbyxgdgbizeipsacbqd.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwYnl4Z2RnYml6ZWlwc2FjYnFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4OTgzNDksImV4cCI6MjEwNzQ3NDM0OX0.KgP4VSfPVpdxN4RsBScUC0IfxxTFtY5anKbB-OCG21s";
+    const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-function toggleAbsent(id) {
-  const btn = document.getElementById(`st-${id}`);
-  const badge = document.getElementById(`st-badge-${id}`);
+    document.addEventListener("DOMContentLoaded", async () => {
+      await loadSettings();
+      await refreshClasses();
+    });
 
-  if (absentStudents.has(id)) {
-    absentStudents.delete(id);
-    btn.className = "p-2 border rounded text-left text-xs bg-white text-slate-800";
-    badge.textContent = "PRESENT";
-    badge.className = "text-[10px] text-emerald-600 font-semibold mt-1";
-  } else {
-    absentStudents.add(id);
-    btn.className = "p-2 border rounded text-left text-xs bg-red-500 text-white font-bold";
-    badge.textContent = "ABSENT";
-    badge.className = "text-[10px] text-white font-bold mt-1";
-  }
-}
+    async function loadSettings() {
+      const { data } = await db.from("institution_settings").select("*").eq("id", 1).single();
+      if (data) {
+        document.getElementById("cfg-college").value = data.college_name || "";
+        document.getElementById("cfg-dept").value = data.department_name || "";
+      }
+    }
 
-async function submitAttendance() {
-  const classId = document.getElementById("mark-class").value;
-  const date = document.getElementById("mark-date").value;
-  const period = parseInt(document.getElementById("mark-period").value);
-  const teacher = document.getElementById("mark-teacher").value.trim();
+    async function saveSettings() {
+      const col = document.getElementById("cfg-college").value.trim();
+      const dep = document.getElementById("cfg-dept").value.trim();
+      const btn = document.getElementById("btn-save-cfg");
 
-  if (!classId || !teacher) return alert("Please fill class and teacher name");
+      btn.textContent = "Saving...";
+      await db.from("institution_settings").update({
+        college_name: col,
+        department_name: dep
+      }).eq("id", 1);
+      btn.textContent = "Saved!";
+      setTimeout(() => btn.textContent = "Save Header Info", 2000);
+    }
 
-  const btn = document.getElementById("btn-submit");
-  btn.disabled = true;
-  btn.textContent = "Saving...";
+    async function createStaffAccount() {
+      const name = document.getElementById("staff-name").value.trim();
+      const email = document.getElementById("staff-email").value.trim();
+      const password = document.getElementById("staff-pass").value;
+      const role = document.getElementById("staff-role").value;
+      const btn = document.getElementById("btn-create-staff");
 
-  const { data: session, error } = await db.from("attendance_sessions").upsert({
-    class_id: classId,
-    attendance_date: date,
-    period_num: period,
-    teacher_name: teacher
-  }, { onConflict: "class_id,attendance_date,period_num" }).select().single();
+      if (!name || !email || !password) return alert("Please fill all staff details");
+      if (password.length < 6) return alert("Password must be at least 6 characters");
 
-  if (error) {
-    alert("Error: " + error.message);
-    btn.disabled = false;
-    btn.textContent = "Save Attendance";
-    return;
-  }
+      btn.disabled = true;
+      btn.textContent = "Creating...";
 
-  await db.from("attendance_absentees").delete().eq("session_id", session.id);
+      const { data, error } = await db.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name, role }
+        }
+      });
 
-  if (absentStudents.size > 0) {
-    const payload = Array.from(absentStudents).map(stId => ({
-      session_id: session.id,
-      student_id: stId
-    }));
-    await db.from("attendance_absentees").insert(payload);
-  }
+      if (error) {
+        alert("Failed to create account: " + error.message);
+      } else {
+        alert(`Account created successfully for ${name} (${role})!`);
+        document.getElementById("staff-name").value = "";
+        document.getElementById("staff-email").value = "";
+        document.getElementById("staff-pass").value = "";
+      }
+      btn.disabled = false;
+      btn.textContent = "Create Staff Account";
+    }
 
-  alert("Attendance Saved Successfully!");
-  btn.disabled = false;
-  btn.textContent = "Save Attendance";
-}
+    async function refreshClasses() {
+      const { data } = await db.from("classes").select("*").order("name");
+      const list = document.getElementById("class-list");
+      const sel = document.getElementById("student-class-sel");
 
-async function generateBook() {
-  const classId = document.getElementById("reg-class").value;
-  const fromDate = document.getElementById("reg-from").value;
-  const toDate = document.getElementById("reg-to").value;
-  let pageNo = parseInt(document.getElementById("reg-page-start").value) || 72;
-  const container = document.getElementById("pages-container");
+      list.innerHTML = "";
+      sel.innerHTML = '<option value="">-- Choose Class --</option>';
 
-  container.innerHTML = "<p class='no-print text-sm'>Compiling register sheets...</p>";
+      (data || []).forEach(c => {
+        list.innerHTML += `<div class="p-2 flex justify-between"><span>${c.name}</span><span class="text-slate-400">ID: ${c.id}</span></div>`;
+        sel.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+      });
+    }
 
-  const { data: sessions } = await db.from("attendance_sessions").select(`
-    id, attendance_date, period_num, teacher_name,
-    attendance_absentees ( students ( id, roll_no, name ) )
-  `)
-  .eq("class_id", classId)
-  .gte("attendance_date", fromDate)
-  .lte("attendance_date", toDate)
-  .order("period_num");
+    async function addClass() {
+      const name = document.getElementById("new-class-name").value.trim();
+      if (!name) return alert("Enter class name");
+      await db.from("classes").insert({ name });
+      document.getElementById("new-class-name").value = "";
+      await refreshClasses();
+    }
 
-  const dateMap = {};
-  (sessions || []).forEach(s => {
-    if (!dateMap[s.attendance_date]) dateMap[s.attendance_date] = [];
-    dateMap[s.attendance_date].push(s);
-  });
+    async function loadStudentsList() {
+      const classId = document.getElementById("student-class-sel").value;
+      const roster = document.getElementById("roster-list");
+      const countLabel = document.getElementById("roster-count");
 
-  const dates = Object.keys(dateMap).sort();
-  if (dates.length === 0) {
-    container.innerHTML = "<p class='no-print text-sm text-red-500'>No attendance records found for this range.</p>";
-    return;
-  }
+      if (!classId) {
+        roster.innerHTML = "";
+        countLabel.textContent = "0 students";
+        return;
+      }
 
-  container.innerHTML = "";
-  const roman = ["I", "II", "III", "IV", "V", "VI"];
+      const { data } = await db.from("students").select("*").eq("class_id", classId).order("roll_no");
+      if (!data || data.length === 0) {
+        roster.innerHTML = '<div class="p-2 text-slate-400 text-center">No students added yet</div>';
+        countLabel.textContent = "0 students";
+        return;
+      }
 
-  dates.forEach(d => {
-    const daySessions = dateMap[d] || [];
-    const pMap = {};
-    const studentAbsences = {};
+      countLabel.textContent = `${data.length} students`;
+      roster.innerHTML = data.map(s => `
+        <div class="p-2 flex justify-between">
+          <span class="font-bold">${s.roll_no}</span>
+          <span>${s.name}</span>
+        </div>
+      `).join("");
+    }
 
-    daySessions.forEach(s => {
-      const absFormatted = s.attendance_absentees
-        .map(a => `${a.students.roll_no} - ${a.students.name}`)
-        .join(", ");
+    function downloadExcelTemplate() {
+      const sampleData = [
+        { "Roll No": "01", "Name": "Aravind Sharma" },
+        { "Roll No": "02", "Name": "Diya Suresh" },
+        { "Roll No": "03", "Name": "Mohammed Irfan" }
+      ];
 
-      pMap[s.period_num] = {
-        teacher: s.teacher_name,
-        absentees: absFormatted,
-        count: s.attendance_absentees.length
+      const ws = XLSX.utils.json_to_sheet(sampleData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Students");
+      XLSX.writeFile(wb, "Student_Upload_Template.xlsx");
+    }
+
+    async function uploadExcel() {
+      const classId = document.getElementById("student-class-sel").value;
+      const fileInput = document.getElementById("excel-file-input");
+
+      if (!classId) return alert("Please select a target class first.");
+      if (!fileInput.files || fileInput.files.length === 0) return alert("Please select an Excel file.");
+
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      const btn = document.getElementById("btn-upload-excel");
+
+      btn.disabled = true;
+      btn.textContent = "Processing file...";
+
+      reader.onload = async (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+          if (!jsonData || jsonData.length === 0) {
+            alert("The uploaded Excel sheet is empty.");
+            btn.disabled = false;
+            btn.textContent = "Upload & Save Students";
+            return;
+          }
+
+          const records = [];
+          for (let row of jsonData) {
+            const roll = row["Roll No"] || row["RollNo"] || row["ROLL NO"] || row["roll_no"] || row["Roll"];
+            const name = row["Name"] || row["NAME"] || row["Student Name"] || row["student_name"];
+
+            if (roll && name) {
+              records.push({
+                class_id: classId,
+                roll_no: String(roll).trim(),
+                name: String(name).trim()
+              });
+            }
+          }
+
+          if (records.length === 0) {
+            alert("No valid records found. Make sure columns are titled 'Roll No' and 'Name'.");
+            btn.disabled = false;
+            btn.textContent = "Upload & Save Students";
+            return;
+          }
+
+          btn.textContent = `Uploading ${records.length} students...`;
+
+          const { error } = await db.from("students").upsert(records, { onConflict: 'class_id,roll_no' });
+
+          if (error) {
+            alert("Upload failed: " + error.message);
+          } else {
+            alert(`Success! Imported ${records.length} students.`);
+            fileInput.value = "";
+            await loadStudentsList();
+          }
+        } catch (err) {
+          alert("Error parsing Excel file: " + err.message);
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Upload & Save Students";
+        }
       };
 
-      s.attendance_absentees.forEach(a => {
-        const sid = a.students.id;
-        if (!studentAbsences[sid]) studentAbsences[sid] = { text: `${a.students.roll_no} - ${a.students.name}`, count: 0, periods: [] };
-        studentAbsences[sid].count++;
-        studentAbsences[sid].periods.push(s.period_num);
-      });
-    });
+      reader.readAsArrayBuffer(file);
+    }
 
-    const hourly = { 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
-    const fn = [], an = [];
-    Object.values(studentAbsences).forEach(st => {
-      if (hourly[st.count]) hourly[st.count].push(st.text);
-      if ([1, 2, 3].every(p => st.periods.includes(p))) fn.push(st.text);
-      if ([4, 5, 6].every(p => st.periods.includes(p))) an.push(st.text);
-    });
+    async function addSingleStudent() {
+      const classId = document.getElementById("student-class-sel").value;
+      const roll = document.getElementById("st-roll").value.trim();
+      const name = document.getElementById("st-name").value.trim();
 
-    const rows = [1, 2, 3, 4, 5, 6].map(num => `
-      <tr style="height: 30px;">
-        <td class="border border-black text-center font-bold">${roman[num-1]}</td>
-        <td class="border border-black px-1.5 text-xs truncate">${pMap[num]?.teacher || ""}</td>
-        <td class="border border-black px-1.5 text-xs"></td>
-        <td class="border border-black px-1.5 text-[10px] leading-tight break-words">${pMap[num]?.absentees || ""}</td>
-        <td class="border border-black text-center font-medium">${pMap[num]?.count ?? ""}</td>
-        <td class="border border-black"></td>
-      </tr>
-    `).join("");
+      if (!classId || !roll || !name) return alert("Fill Class, Roll No, and Name");
 
-    const dayName = new Date(d).toLocaleDateString("en-US", { weekday: "long" });
-
-    container.innerHTML += `
-      <div class="a4-page bg-white border border-neutral-300 p-[10mm] shadow-lg w-[210mm] h-[297mm] max-h-[297mm] overflow-hidden flex flex-col justify-between font-serif mb-8">
-        <div>
-          <div class="text-center font-bold">
-            <h1 class="text-base uppercase tracking-wider">${institutionSettings.college_name}</h1>
-            <h2 class="text-sm font-semibold uppercase">${institutionSettings.department_name}</h2>
-          </div>
-          <div class="flex justify-between items-end mt-2 mb-1 border-b border-black pb-1">
-            <div class="text-red-600 font-bold text-lg">${pageNo++}</div>
-            <div class="text-lg font-bold tracking-widest text-center uppercase">ATTENDANCE BOOK</div>
-            <div class="w-6"></div>
-          </div>
-          <div class="flex justify-between text-xs font-semibold mt-1 mb-2">
-            <div>Date: <span class="underline ml-1">${d}</span></div>
-            <div>Day: <span class="underline ml-1">${dayName}</span></div>
-          </div>
-          <table class="w-full border-collapse border border-black text-xs">
-            <thead>
-              <tr class="border-b border-black text-[11px] font-bold">
-                <th class="border border-black p-1 w-[8%] text-center leading-tight">Hour/<br>Period</th>
-                <th class="border border-black p-1 w-[22%] text-center">Name of Teacher</th>
-                <th class="border border-black p-1 w-[14%] text-center">Subject</th>
-                <th class="border border-black p-1 w-[38%] text-center">Absentees (Roll No - Name)</th>
-                <th class="border border-black p-1 w-[8%] text-center leading-tight">No. of<br>Absen-tees</th>
-                <th class="border border-black p-1 w-[10%] text-center">Signature</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>
-        <div>
-          <table class="w-full border-collapse border border-black text-xs mb-2">
-            <thead>
-              <tr class="bg-neutral-800 text-white text-center font-bold text-[11px]">
-                <th colSpan="6" class="border border-black py-0.5">Absentees</th>
-              </tr>
-              <tr class="border-b border-black text-[10px] font-bold">
-                <th class="border border-black p-1 w-1/6">1 Hour/Period</th>
-                <th class="border border-black p-1 w-1/6">2 Hours/Periods</th>
-                <th class="border border-black p-1 w-1/6">3 Hours/Periods</th>
-                <th class="border border-black p-1 w-1/6">4 Hours/Periods</th>
-                <th class="border border-black p-1 w-1/6">5 Hours/Periods</th>
-                <th class="border border-black p-1 w-1/6">6 Hours/Periods<br>(Full day)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="h-[48px] align-top text-[9.5px] leading-tight">
-                ${[1,2,3,4,5,6].map(n => `<td class="border border-black p-1 break-words">${hourly[n].join(", ")}</td>`).join("")}
-              </tr>
-            </tbody>
-          </table>
-          <table class="w-[65%] mx-auto border-collapse border border-black text-xs">
-            <thead>
-              <tr class="bg-neutral-800 text-white text-center font-bold text-[10.5px]">
-                <th class="border border-black py-0.5 w-1/2">Half Day (FN)</th>
-                <th class="border border-black py-0.5 w-1/2">Half Day (AN)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="h-[44px] align-top text-[9.5px] leading-tight">
-                <td class="border border-black p-1 break-words">${fn.join(", ")}</td>
-                <td class="border border-black p-1 break-words">${an.join(", ")}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  });
-}
+      const { error } = await db.from("students").upsert({ class_id: classId, roll_no: roll, name }, { onConflict: 'class_id,roll_no' });
+      if (error) alert(error.message);
+      else {
+        document.getElementById("st-roll").value = "";
+        document.getElementById("st-name").value = "";
+        loadStudentsList();
+      }
+    }
+  </script>
+</body>
+</html>
