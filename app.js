@@ -1,4 +1,3 @@
-// Connect to Supabase
 const SUPABASE_URL = "https://kpbyxgdgbizeipsacbqd.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtwYnl4Z2RnYml6ZWlwc2FjYnFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4OTgzNDksImV4cCI6MjEwNzQ3NDM0OX0.KgP4VSfPVpdxN4RsBScUC0IfxxTFtY5anKbB-OCG21s";
 
@@ -8,59 +7,40 @@ let absentStudents = new Set();
 let institutionSettings = { college_name: '', department_name: '' };
 let currentUserProfile = null;
 
-// On Page Load: Check Auth, Settings, and Load Dropdowns
 document.addEventListener("DOMContentLoaded", async () => {
   await checkAuth();
 
   const today = new Date().toISOString().split("T")[0];
-  const markDateInput = document.getElementById("mark-date");
-  const regFromInput = document.getElementById("reg-from");
-  const regToInput = document.getElementById("reg-to");
+  const markDate = document.getElementById("mark-date");
+  const regFrom = document.getElementById("reg-from");
+  const regTo = document.getElementById("reg-to");
 
-  if (markDateInput) markDateInput.value = today;
-  if (regFromInput) regFromInput.value = today;
-  if (regToInput) regToInput.value = today;
+  if (markDate) markDate.value = today;
+  if (regFrom) regFrom.value = today;
+  if (regTo) regTo.value = today;
 
   await loadInstitutionInfo();
   await loadClassDropdowns();
 });
 
-// 1. AUTHENTICATION & ROLE GATE
 async function checkAuth() {
   const { data: { session } } = await db.auth.getSession();
-
   if (!session) {
     window.location.href = "login.html";
     return;
   }
 
-  // Fetch role and profile details
-  const { data: profile } = await db
-    .from("profiles")
-    .select("*")
-    .eq("id", session.user.id)
-    .single();
-
+  const { data: profile } = await db.from("profiles").select("*").eq("id", session.user.id).single();
   if (profile) {
     currentUserProfile = profile;
-
-    // Auto-fill teacher name input if present
     const teacherInput = document.getElementById("mark-teacher");
-    if (teacherInput && !teacherInput.value) {
-      teacherInput.value = profile.name;
-    }
+    if (teacherInput) teacherInput.value = profile.name;
 
-    // Role-based visibility: hide Admin button if user is STAFF
     const adminBtn = document.querySelector('a[href="admin.html"]');
     if (adminBtn && profile.role === 'STAFF') {
       adminBtn.style.display = 'none';
     }
   }
-}
-
-async function handleLogout() {
-  await db.auth.signOut();
-  window.location.href = "login.html";
 }
 
 function showTab(tab) {
@@ -87,9 +67,11 @@ async function loadClassDropdowns() {
   });
 }
 
+// Auto-populate subject and students when class changes
 async function loadStudents() {
   const classId = document.getElementById("mark-class").value;
   const grid = document.getElementById("student-grid");
+  const subjectInput = document.getElementById("mark-subject");
   absentStudents.clear();
 
   if (!classId) {
@@ -97,15 +79,29 @@ async function loadStudents() {
     return;
   }
 
+  // Auto-fill allocated subject for this teacher & class
+  if (currentUserProfile) {
+    const { data: alloc } = await db.from("course_allocations")
+      .select("subjects(code)")
+      .eq("class_id", classId)
+      .eq("staff_id", currentUserProfile.id)
+      .limit(1)
+      .single();
+
+    if (alloc && alloc.subjects) {
+      subjectInput.value = alloc.subjects.code;
+    }
+  }
+
   const { data: students } = await db.from("students").select("*").eq("class_id", classId).order("roll_no");
   if (!students || students.length === 0) {
-    grid.innerHTML = '<p class="text-xs text-red-500 col-span-2 p-3 text-center">No students found in this class. Add via Admin panel.</p>';
+    grid.innerHTML = '<p class="text-xs text-red-500 col-span-2 p-3 text-center">No students found. Add via Admin.</p>';
     return;
   }
 
   grid.innerHTML = students.map(s => `
     <button type="button" id="st-${s.id}" onclick="toggleAbsent(${s.id})"
-      class="p-2 border rounded text-left text-xs bg-white text-slate-800 transition shadow-sm">
+      class="p-2 border rounded text-left text-xs bg-white text-slate-800 transition">
       <div class="font-bold">${s.roll_no}</div>
       <div class="truncate text-[11px]">${s.name}</div>
       <div id="st-badge-${s.id}" class="text-[10px] text-emerald-600 font-semibold mt-1">PRESENT</div>
@@ -119,12 +115,12 @@ function toggleAbsent(id) {
 
   if (absentStudents.has(id)) {
     absentStudents.delete(id);
-    btn.className = "p-2 border rounded text-left text-xs bg-white text-slate-800 transition shadow-sm";
+    btn.className = "p-2 border rounded text-left text-xs bg-white text-slate-800";
     badge.textContent = "PRESENT";
     badge.className = "text-[10px] text-emerald-600 font-semibold mt-1";
   } else {
     absentStudents.add(id);
-    btn.className = "p-2 border rounded text-left text-xs bg-red-500 text-white font-bold transition shadow-sm";
+    btn.className = "p-2 border rounded text-left text-xs bg-red-500 text-white font-bold";
     badge.textContent = "ABSENT";
     badge.className = "text-[10px] text-white font-bold mt-1";
   }
@@ -135,30 +131,42 @@ async function submitAttendance() {
   const date = document.getElementById("mark-date").value;
   const period = parseInt(document.getElementById("mark-period").value);
   const teacher = document.getElementById("mark-teacher").value.trim();
-  const subject = document.getElementById("mark-subject").value.trim();
+  const subjectCode = document.getElementById("mark-subject").value.trim();
 
-  if (!classId || !teacher) return alert("Please fill class and teacher name");
+  if (!classId || !teacher) return alert("Fill Class and Teacher name");
 
   const btn = document.getElementById("btn-submit");
   btn.disabled = true;
   btn.textContent = "Saving...";
+
+  // Find or create subject id if code entered
+  let subjectId = null;
+  if (subjectCode) {
+    let { data: sub } = await db.from("subjects").select("id").eq("code", subjectCode).maybeSingle();
+    if (!sub) {
+      const { data: newSub } = await db.from("subjects").insert({ code: subjectCode, name: subjectCode }).select().single();
+      if (newSub) subjectId = newSub.id;
+    } else {
+      subjectId = sub.id;
+    }
+  }
 
   const { data: session, error } = await db.from("attendance_sessions").upsert({
     class_id: classId,
     attendance_date: date,
     period_num: period,
     teacher_name: teacher,
-    teacher_id: currentUserProfile?.id || null
+    teacher_id: currentUserProfile?.id || null,
+    subject_id: subjectId
   }, { onConflict: "class_id,attendance_date,period_num" }).select().single();
 
   if (error) {
-    alert("Error saving session: " + error.message);
+    alert("Error: " + error.message);
     btn.disabled = false;
     btn.textContent = "Save Attendance";
     return;
   }
 
-  // Clear previous absentees for this exact session and insert current ones
   await db.from("attendance_absentees").delete().eq("session_id", session.id);
 
   if (absentStudents.size > 0) {
@@ -174,6 +182,7 @@ async function submitAttendance() {
   btn.textContent = "Save Attendance";
 }
 
+// Generate fluid 1-Page A4 Sheet with responsive height & wrapping
 async function generateBook() {
   const classId = document.getElementById("reg-class").value;
   const fromDate = document.getElementById("reg-from").value;
@@ -181,10 +190,11 @@ async function generateBook() {
   let pageNo = parseInt(document.getElementById("reg-page-start").value) || 72;
   const container = document.getElementById("pages-container");
 
-  container.innerHTML = "<p class='no-print text-sm p-4'>Compiling register sheets...</p>";
+  container.innerHTML = "<p class='no-print text-sm p-4'>Compiling sheets...</p>";
 
   const { data: sessions, error } = await db.from("attendance_sessions").select(`
     id, attendance_date, period_num, teacher_name,
+    subjects ( code ),
     attendance_absentees ( students ( id, roll_no, name ) )
   `)
   .eq("class_id", classId)
@@ -205,7 +215,7 @@ async function generateBook() {
 
   const dates = Object.keys(dateMap).sort();
   if (dates.length === 0) {
-    container.innerHTML = "<p class='no-print text-sm text-red-500 p-4'>No attendance records found for this range.</p>";
+    container.innerHTML = "<p class='no-print text-sm text-red-500 p-4'>No attendance records found.</p>";
     return;
   }
 
@@ -224,6 +234,7 @@ async function generateBook() {
 
       pMap[s.period_num] = {
         teacher: s.teacher_name,
+        subject: s.subjects?.code || "",
         absentees: absFormatted,
         count: s.attendance_absentees.length
       };
@@ -244,12 +255,13 @@ async function generateBook() {
       if ([4, 5, 6].every(p => st.periods.includes(p))) an.push(st.text);
     });
 
+    // Rows: Automatically stretch and wrap absentees cleanly
     const rows = [1, 2, 3, 4, 5, 6].map(num => `
-      <tr style="height: 30px;">
-        <td class="border border-black text-center font-bold">${roman[num-1]}</td>
-        <td class="border border-black px-1.5 text-xs truncate max-w-[120px]">${pMap[num]?.teacher || ""}</td>
-        <td class="border border-black px-1.5 text-xs"></td>
-        <td class="border border-black px-1.5 text-[10px] leading-tight break-words">${pMap[num]?.absentees || ""}</td>
+      <tr style="min-height: 28px;">
+        <td class="border border-black text-center font-bold py-1">${roman[num-1]}</td>
+        <td class="border border-black px-2 py-1 text-xs truncate max-w-[110px]">${pMap[num]?.teacher || ""}</td>
+        <td class="border border-black px-2 py-1 text-xs text-center font-semibold">${pMap[num]?.subject || ""}</td>
+        <td class="border border-black px-2 py-1 text-[10.5px] leading-snug break-words">${pMap[num]?.absentees || ""}</td>
         <td class="border border-black text-center font-medium">${pMap[num]?.count ?? ""}</td>
         <td class="border border-black"></td>
       </tr>
@@ -257,6 +269,7 @@ async function generateBook() {
 
     const dayName = new Date(d).toLocaleDateString("en-US", { weekday: "long" });
 
+    // Fluid A4 Sheet structure that fills top-to-bottom naturally
     container.innerHTML += `
       <div class="a4-page bg-white border border-neutral-300 p-[10mm] shadow-lg w-[210mm] h-[297mm] max-h-[297mm] overflow-hidden flex flex-col justify-between font-serif mb-8">
         <div>
@@ -275,11 +288,11 @@ async function generateBook() {
           </div>
           <table class="w-full border-collapse border border-black text-xs">
             <thead>
-              <tr class="border-b border-black text-[11px] font-bold">
+              <tr class="border-b border-black text-[11px] font-bold bg-neutral-50">
                 <th class="border border-black p-1 w-[8%] text-center leading-tight">Hour/<br>Period</th>
-                <th class="border border-black p-1 w-[22%] text-center">Name of Teacher</th>
-                <th class="border border-black p-1 w-[14%] text-center">Subject</th>
-                <th class="border border-black p-1 w-[38%] text-center">Absentees (Roll No - Name)</th>
+                <th class="border border-black p-1 w-[20%] text-center">Name of Teacher</th>
+                <th class="border border-black p-1 w-[12%] text-center">Subject</th>
+                <th class="border border-black p-1 w-[42%] text-center">Absentees (Roll No - Name)</th>
                 <th class="border border-black p-1 w-[8%] text-center leading-tight">No. of<br>Absen-tees</th>
                 <th class="border border-black p-1 w-[10%] text-center">Signature</th>
               </tr>
@@ -287,11 +300,12 @@ async function generateBook() {
             <tbody>${rows}</tbody>
           </table>
         </div>
-        <div>
-          <table class="w-full border-collapse border border-black text-xs mb-2">
+
+        <div class="mt-4">
+          <table class="w-full border-collapse border border-black text-xs mb-3">
             <thead>
               <tr class="bg-neutral-800 text-white text-center font-bold text-[11px]">
-                <th colSpan={6} className="border border-black py-0.5">Absentees</th>
+                <th colSpan={6} class="border border-black py-0.5">Absentees</th>
               </tr>
               <tr class="border-b border-black text-[10px] font-bold">
                 <th class="border border-black p-1 w-1/6">1 Hour/Period</th>
@@ -303,11 +317,12 @@ async function generateBook() {
               </tr>
             </thead>
             <tbody>
-              <tr class="h-[48px] align-top text-[9.5px] leading-tight">
+              <tr class="h-[52px] align-top text-[9.5px] leading-tight">
                 ${[1,2,3,4,5,6].map(n => `<td class="border border-black p-1 break-words">${hourly[n].join(", ")}</td>`).join("")}
               </tr>
             </tbody>
           </table>
+
           <table class="w-[65%] mx-auto border-collapse border border-black text-xs">
             <thead>
               <tr class="bg-neutral-800 text-white text-center font-bold text-[10.5px]">
@@ -316,7 +331,7 @@ async function generateBook() {
               </tr>
             </thead>
             <tbody>
-              <tr class="h-[44px] align-top text-[9.5px] leading-tight">
+              <tr class="h-[46px] align-top text-[9.5px] leading-tight">
                 <td class="border border-black p-1 break-words">${fn.join(", ")}</td>
                 <td class="border border-black p-1 break-words">${an.join(", ")}</td>
               </tr>
